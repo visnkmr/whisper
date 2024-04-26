@@ -76,7 +76,10 @@ def transcriber():
 
                     sfile.write(audio_buffer)
                     sfile.close()
-                    result = model.transcribe(audio=filename)
+                    decode_options = {
+                        'task': "translate",
+                    }
+                    result = model.transcribe(audio=filename,**decode_options)
                     answer=result["text"]
                     if answer != "":
                         print(answer)
