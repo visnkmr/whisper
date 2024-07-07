@@ -33,8 +33,16 @@ import sys
 import os
 import numpy as np
 def transcriber():
+    filename = f"tempaudio.wav"
+    if os.path.exists(filename):
+        os.remove(filename)
+    # input_transformed=audio_buffer.flatten().astype(numpy.float32)
+    # print(filename)
+    # print(sys.getsizeof(audio_buffer))
+    
     import whisper
     model = whisper.load_model("small")
+    
     model.transcribe(audio=np.zeros((int(SampleRate * BlockSize / 1000)), dtype=np.float32))
     device=9
     samplerate=44100
@@ -49,9 +57,9 @@ def transcriber():
         # Make sure the file is opened before recording anything:
     # with sf.SoundFile(args.filename, mode='x', samplerate=args.samplerate,
     #                 channels=args.channels, subtype=args.subtype) as file:
-        with sd.InputStream(samplerate=samplerate, device=device,
+        with sd.InputStream(samplerate=samplerate, device=None,
                             channels=channels, callback=callback,blocksize=int(SampleRate * BlockSize / 1000),dtype=np.float32):
-
+            sfile=sf.SoundFile(filename,mode='x', samplerate=samplerate,channels=channels)
             print('#' * 80)
             print('#' * 25+'press Ctrl+C to stop live transcribe'+'#' * 25)
             print('#' * 80)
@@ -65,28 +73,30 @@ def transcriber():
                     # result = model.transcribe(audio=audio_buffer)
                     # print(result["text"])
 
-                    filename = f"tempaudio.wav"
-                    # input_transformed=audio_buffer.flatten().astype(numpy.float32)
-                    # print(filename)
-                    # print(sys.getsizeof(audio_buffer))
-                    sfile=sf.SoundFile(filename,mode='x', samplerate=samplerate,channels=channels)
+                    
                     # audio=np.frombuffer(audio_buffer, np.int16).flatten().astype(np.float32) / 32768.0
                     # import torch
                     # abuf=torch.from_numpy(audio)
-
                     sfile.write(audio_buffer)
-                    sfile.close()
+                    
                     decode_options = {
                         'task': "translate",
                     }
-                    result = model.transcribe(audio=filename,**decode_options)
+                    audio=whisper.load_audio(filename)
+                    duration=audio.shape[0]/whisper.audio.SAMPLE_RATE
+                    print(duration)
+                    result = model.transcribe(audio=filename,clip_timestamps=[duration-5,duration],**decode_options)
+                    
                     answer=result["text"]
+                    
                     if answer != "":
+                        words = answer.split()
+                        last_five_words = words[-20:]  # Get the last 5 elements from the list
+                        answer= " ".join(last_five_words) if last_five_words else answer  # Join back with spaces
                         print(answer)
                     # print(result["text"])
-                    sfile.close()
-                    if os.path.exists(filename):
-                        os.remove(filename)
+                    # sfile.close()
+                    
                     audio_buffer = np.zeros((int(SampleRate * BlockSize / 1000), 2)) # Reset the buffer
                     # audio_buffer2 = np.zeros((int(SampleRate * BlockSize / 1000), 1))
                     last_save_time = current_time
@@ -97,6 +107,7 @@ def transcriber():
                 # audio_buffer2 = numpy.concatenate((audio_buffer2, ab2))
                 # file.write(whatstheaudio)
     except KeyboardInterrupt:
+        sfile.close()
         print('\nTranscribing has been stopped ')
 
 transcriber()
